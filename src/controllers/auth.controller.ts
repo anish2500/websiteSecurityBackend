@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { UserService } from "../services/user.service";
 import { ChangePasswordDto, CreateUserDTO, LoginUserDTO, UpdateUserDto } from "../dtos/user.dto";
 import { success } from "zod";
+import { verifyCaptcha } from "../utils/captch.util";
 
 const userService = new UserService();
 
@@ -49,6 +50,15 @@ export class AuthController {
                 });
             }
 
+            // CAPTCHA is required on every login attempt - solved before the password is
+            // even checked, so it can't leak whether a guessed password was correct.
+            const captchaOk = await verifyCaptcha(parsedData.data.captchaToken);
+            if (!captchaOk) {
+                return res.status(400).json({ success: false, captchaRequired: true, message: "Please complete the CAPTCHA" });
+            }
+
+            // Runs only once CAPTCHA is satisfied - this is what counts failed attempts
+            // and enforces the 5-attempt lockout.
             const { token, user } = await userService.loginUser(parsedData.data);
 
             return res.status(200).json({

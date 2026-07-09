@@ -32,6 +32,14 @@ const UserSchema: Schema = new Schema({
         type: [String],   // last N bcrypt hashes, oldest dropped
         default: []
     },
+    failedLoginAttempts: {
+        type: Number,
+        default: 0
+    },
+    lockUntil: {
+        type: Date,
+        default: null
+    },
     profilePicture: {
         type: String,
         required: false,
@@ -52,6 +60,8 @@ export interface IUser extends UserType, Document {
     profilePicture: string;
     passwordChangedAt?: Date;
     passwordHistory?: string[];
+    failedLoginAttempts?: number; 
+    lockUntil?: Date | null; 
     _id: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;

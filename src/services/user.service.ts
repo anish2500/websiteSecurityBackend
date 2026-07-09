@@ -77,14 +77,30 @@ export class UserService {
     async loginUser(data: LoginUserDTO) {
         // 1. Check if the user exists by email
         const user = await userRepository.getUserbyEmail(data.email);
-        if (!user) {
-            throw new HttpError(404, "User not found");
+        if (!user) throw new HttpError(401, "Invalid credentials");
+
+
+        if (user.lockUntil && user.lockUntil > new Date()){
+            const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now())/60000);
+            throw new HttpError(423, `Account locked. Try again in ${minutesLeft} minute(s).`);
         }
 
         // 2. Compare the plain-text password with the hashed password in DB
         const isPasswordValid = await bcryptjs.compare(data.password, user.password);
         if (!isPasswordValid) {
+            const attempts = (user.failedLoginAttempts || 0) + 1; 
+            const update: any = { failedLoginAttempts: attempts}; 
+            if (attempts >=5){
+                update.lockUntil = new Date(Date.now() + 15 * 60 * 1000 );
+                update.failedLoginAttempts = 0; 
+
+            }
+            await userRepository.updateOneUser(user._id.toString(), update); 
             throw new HttpError(401, "Invalid credentials");
+        }
+
+        if ( (user.failedLoginAttempts || 0) > 0 || user.lockUntil){
+            await userRepository.updateOneUser(user._id.toString(), { failedLoginAttempts :0, lockUntil : null});
         }
 
         const forcePasswordChange =isPasswordExpired(user.passwordChangedAt);

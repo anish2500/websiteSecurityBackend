@@ -9,6 +9,7 @@ import adminPlantRoutes from './routes/admin/plant.route';
 import cartRoutes from "./routes/cart.route";
 import orderRoutes from "./routes/order.route";
 import favoriteRoutes from "./routes/favorite.route";
+import { globalApiLimiter } from './middlewares/rate-limit.middleware';
 
 
 const app: Application = express();
@@ -21,6 +22,7 @@ const corsOptions = {
     credentials  : true
 };
 app.use(cors(corsOptions));
+app.use(globalApiLimiter); 
 
 
 
