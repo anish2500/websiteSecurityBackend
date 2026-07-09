@@ -1,5 +1,6 @@
 import { QueryFilter } from "mongoose";
 import { PlantModel, IPlant } from "../models/plant.model";
+import { PlantCategoryEnum } from "../types/plant.type";
 
 
 export interface IPlantRepository {
@@ -55,8 +56,8 @@ export class PlantRepository implements IPlantRepository {
                 
             ];
         }
-        if(category){
-            filter.category =category;
+        if (category && Object.values(PlantCategoryEnum).includes(category as PlantCategoryEnum)) {
+            filter.category = category as PlantCategoryEnum;
         }
 
         if(minPrice!==undefined ||maxPrice!==undefined){

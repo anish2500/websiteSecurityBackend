@@ -10,17 +10,32 @@ import cartRoutes from "./routes/cart.route";
 import orderRoutes from "./routes/order.route";
 import favoriteRoutes from "./routes/favorite.route";
 import { globalApiLimiter } from './middlewares/rate-limit.middleware';
+import helmet from "helmet";
 
 
 const app: Application = express();
-const corsOptions = {
-    origing : ['http://localhost: 3000', 'http://localhost:3003', 'http://localhost:3005',
-        'http://192.168.18.4:5050',   // Flutter running via IP (Mobile/Web)
-        'http://127.0.0.1:5050'
-    ], 
-    optionsSuccessStatus : 200, 
-    credentials  : true
+const allowedOrigins = [
+    'http://localhost:3000', 
+    'http://localhost:3003', 
+    'http://localhost:3005', 
+    'http://192.168.18.4:5050', 
+    'http://127.0.0.1:5050', 
+    process.env.CLIENT_URI, 
+].filter(Boolean);
+
+const corsOptions  = {
+    origin: (origin: string | undefined, callback: (err: Error | null , allow?: boolean)=> void )=> {
+        if (!origin || allowedOrigins.includes(origin)){
+            return callback(null, true);
+
+        }
+        return callback (new Error ("Not allowed by CORS"));
+    }, 
+    optionsSuccessStatus: 200, 
+    credentials: true, 
 };
+
+app.use(helmet());
 app.use(cors(corsOptions));
 app.use(globalApiLimiter); 
 

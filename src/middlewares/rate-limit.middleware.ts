@@ -27,12 +27,19 @@ export const registerLimiter = rateLimit({
 }); 
 
 export const passwordResetLimiter = rateLimit({
-    windowMs: 60* 60 * 1000, 
-    max: 5, 
-    skip: skipTrusted, 
-    message: { success: false, message: " Too many password reset requests. Try again later"}, 
+    windowMs: 60* 60 * 1000,
+    max: 5,
+    skip: skipTrusted,
+    message: { success: false, message: " Too many password reset requests. Try again later"},
 
-}); 
+});
+
+export const changePasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    skip: skipTrusted,
+    message: { success: false, message: "Too many password change attempts. Try again later." },
+});
 
 export const globalApiLimiter = rateLimit({
     windowMs: 15* 60 * 1000, 
