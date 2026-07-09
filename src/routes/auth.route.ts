@@ -4,6 +4,7 @@ import { uploadProfilePicture } from "../middlewares/upload.middleware";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config";
 import { authorizedMiddleware } from "../middlewares/authorization.middleware";
+import { loginLimiter, registerLimiter, passwordResetLimiter } from "../middlewares/rate-limit.middleware";
 
 const authController = new AuthController();
 const router = Router(); 
@@ -32,16 +33,16 @@ const verifyToken = (req: any, res: any, next: any) => {
 };
 
 // Auth routes
-router.post("/register", authController.register.bind(authController));
-router.post("/login", authController.login.bind(authController));
+router.post("/register" ,registerLimiter, authController.register.bind(authController));
+router.post("/login", loginLimiter,  authController.login.bind(authController));
 
 // Profile management routes (using controller methods)
 router.get("/profile", verifyToken, authController.getProfile.bind(authController));
 router.put("/profile", verifyToken, uploadProfilePicture.single("profilePicture"), authController.updateProfile.bind(authController));
 
 
-router.post("/request-password-reset", authController.sendResetPasswordEmail);
-router.post("/reset-password/:token", authController.resetPassword);
+router.post("/request-password-reset", passwordResetLimiter,  authController.sendResetPasswordEmail);
+router.post("/reset-password/:token",passwordResetLimiter,  authController.resetPassword);
 router.post("/change-password", authorizedMiddleware, authController.changePassword);
 
 
