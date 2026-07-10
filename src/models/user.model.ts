@@ -36,6 +36,19 @@ const UserSchema: Schema = new Schema({
         type: Number,
         default: 0
     },
+    mfaEnabled: {
+        type: Boolean, 
+        default: false
+    }, 
+    mfaSecret: {
+        type: String, 
+        select: false
+    },
+    mfaBackupCodes: {
+        type: [String], 
+        select: false, 
+        default: []
+    },
     lockUntil: {
         type: Date,
         default: null
@@ -61,6 +74,9 @@ export interface IUser extends UserType, Document {
     passwordChangedAt?: Date;
     passwordHistory?: string[];
     failedLoginAttempts?: number; 
+    mfaEnabled?: boolean; 
+    mfaSecret?: string; 
+    mfaBackupCodes?: string[];
     lockUntil?: Date | null; 
     _id: mongoose.Types.ObjectId;
     createdAt: Date;

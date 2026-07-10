@@ -23,4 +23,9 @@ router.post("/change-password", changePasswordLimiter, authorizedMiddleware, aut
 
 router.get("/whoami", authorizedMiddleware, authController.getProfile);
 
+router.post("/mfa/setup", authorizedMiddleware, authController.setupMfa);
+router.post("/mfa/verify-setup", authorizedMiddleware, authController.verifyMfaSetup);
+router.post("/mfa/challenge", loginLimiter, authController.mfaChallenge); 
+router.post("/mfa/disable", authorizedMiddleware, authController.disableMfa);
+
 export default router;

@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service";
-import { ChangePasswordDto, CreateUserDTO, LoginUserDTO, UpdateUserDto } from "../dtos/user.dto";
+import { ChangePasswordDto, CreateUserDTO, LoginUserDTO, MfaChallengeDto, UpdateUserDto, VerifyMfaDto } from "../dtos/user.dto";
 import { success } from "zod";
 import { verifyCaptcha } from "../utils/captch.util";
 import { UserRepository } from "../repositories/user.repository";
+import { generateBackupCodes, generateMfaSecret, generateQrCodeDataUrl } from "../utils/mfa.util";
 
 const userService = new UserService();
 const userRepository = new UserRepository();
@@ -64,13 +65,21 @@ export class AuthController {
             }
 
             // Enforces the 5-attempt lockout.
-            const { token, user } = await userService.loginUser(parsedData.data);
+            const result = await userService.loginUser(parsedData.data);
+
+            if (result.mfaRequired) {
+                return res.status(200).json({
+                    success: true,
+                    mfaRequired: true,
+                    mfaChallengeToken: result.mfaChallengeToken
+                });
+            }
 
             return res.status(200).json({
                 success: true,
                 message: "Login successful",
-                token,
-                data: user
+                token: result.token,
+                data: result.user
             });
 
         } catch (error: any) {
@@ -189,4 +198,58 @@ export class AuthController {
             return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server error"});
         }
     }
+
+   setupMfa = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.id;
+        const user = await userService.getUserById(userId);
+        const { secret, otpauthUrl } = generateMfaSecret(user.email);
+        await userService.storeMfaSecretPending(userId, secret);
+        const qr = await generateQrCodeDataUrl(otpauthUrl);
+        return res.status(200).json({ success: true, data: { qrCode: qr } });
+    } catch (error: any) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+}
+
+verifyMfaSetup = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.id;
+        const parsed = VerifyMfaDto.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors });
+        }
+        const ok = await userService.confirmMfaEnrollment(userId, parsed.data.token);
+        if (!ok) return res.status(400).json({ success: false, message: "Invalid MFA code" });
+        const backupCodes = generateBackupCodes();
+        await userService.saveBackupCodes(userId, backupCodes);
+        return res.status(200).json({ success: true, data: { backupCodes } });
+    } catch (error: any) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+}
+
+mfaChallenge = async (req: Request, res: Response) => {
+    try {
+        const parsed = MfaChallengeDto.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors });
+        }
+        const { token, user } = await userService.verifyMfaChallenge(parsed.data.mfaChallengeToken, parsed.data.token);
+        return res.status(200).json({ success: true, message: "Login successful", token, data: user });
+    } catch (error: any) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+}
+
+disableMfa = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.id;
+        await userService.disableMfa(userId);
+        return res.status(200).json({ success: true, message: "MFA disabled" });
+    } catch (error: any) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+}
+
 }
