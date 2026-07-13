@@ -69,4 +69,4 @@ app.get('/', (req: Request, res: Response) => {
     return res.status(200).json({ success: "true", message: "Welcome to the API" });
 });
 
-export default app; 
+export default app;
