@@ -4,6 +4,7 @@ import { IAdmin } from "../../models/admin/admin.model";
 import { UserService } from "../../services/user.service";
 import {QueryParams} from "../../types/query.type";
 import { OrderService } from "../../services/order.service";
+import { CreateAdminDTO } from "../../dtos/admin/admin.dto";
 
 
 import mongoose from "mongoose";
@@ -13,22 +14,32 @@ const userService = new UserService();
 const orderService = new OrderService();
 
 export class AdminController {
-    async registerAdmin(req: Request, res: Response, next: NextFunction) {
-        try {
-            const validatedData = req.body;
-            const newAdmin = await adminService.registerAdmin(validatedData);
-            
-            const { password, ...adminResponse } = newAdmin.toObject();
-            
-            res.status(201).json({
-                success: true,
-                message: "Admin registered successfully",
-                data: adminResponse
+   async registerAdmin(req: Request, res: Response, next: NextFunction) {
+    try {
+        const parsedData = CreateAdminDTO.safeParse(req.body);
+
+        if (!parsedData.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Validation Error",
+                errors: parsedData.error.flatten().fieldErrors
             });
-        } catch (error) {
-            next(error);
         }
+
+        const newAdmin = await adminService.registerAdmin(parsedData.data);
+
+        const { password, ...adminResponse } = newAdmin.toObject();
+
+        res.status(201).json({
+            success: true,
+            message: "Admin registered successfully",
+            data: adminResponse
+        });
+    } catch (error) {
+        next(error);
     }
+}
+
 
     async loginAdmin(req: Request, res: Response, next: NextFunction) {
         try {

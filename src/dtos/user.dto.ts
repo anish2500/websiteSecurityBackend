@@ -56,3 +56,17 @@ export const UpdateUserDto = z.object({
 });
 
 export type UpdateUserDto = z.infer<typeof UpdateUserDto>;
+
+export const VerifyMfaDto = z.object({
+    token: z.string().length(6, "Code must be 6 digits ").regex(/^\d+$/, "Code must be numeric"), 
+
+});
+export type VerifyMfaDto = z.infer<typeof VerifyMfaDto>;
+
+
+export const MfaChallengeDto = z.object({
+    mfaChallengeToken: z.string().min(1), 
+    token: z.string().length(6, "Code must be 6 digits").regex(/^\d+$/, "Code must be numeric"),
+});
+
+export type MfaChallengeDto = z.infer<typeof MfaChallengeDto>;

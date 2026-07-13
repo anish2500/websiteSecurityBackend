@@ -19,8 +19,15 @@ router.put("/profile", authorizedMiddleware, uploadProfilePicture.single("profil
 router.post("/request-password-reset", passwordResetLimiter,  authController.sendResetPasswordEmail);
 router.post("/reset-password/:token",passwordResetLimiter,  authController.resetPassword);
 router.post("/change-password", changePasswordLimiter, authorizedMiddleware, authController.changePassword);
+router.post("/refresh", loginLimiter, authController.refresh.bind(authController));
+router.post("/logout", authController.logout.bind(authController));
 
 
 router.get("/whoami", authorizedMiddleware, authController.getProfile);
+
+router.post("/mfa/setup", authorizedMiddleware, authController.setupMfa);
+router.post("/mfa/verify-setup", authorizedMiddleware, authController.verifyMfaSetup);
+router.post("/mfa/challenge", loginLimiter, authController.mfaChallenge); 
+router.post("/mfa/disable", authorizedMiddleware, authController.disableMfa);
 
 export default router;

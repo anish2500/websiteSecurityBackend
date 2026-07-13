@@ -6,11 +6,35 @@ import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config";
 import { sendEmail } from "../config/email";
 import { isPasswordReused, isPasswordExpired, BCRYPT_COST, PASSWORD_HISTORY_LIMIT } from "../utils/password-policy-util";
+import { UserModel } from "../models/user.model";
+import { validate } from "uuid";
+import { verifyMfaToken } from "../utils/mfa.util";
+import { RefreshTokenModel } from "../models/refresh-token.model";
+import { generateRefreshToken, hashRefreshToken } from "../utils/token.util";
+
 
 
 
 const CLIENT_URL = process.env.CLIENT_URI as string; 
+const ACCESS_TOKEN_TTL = "15m"; 
+const REFRESH_TOKEN_TTL_MS = 7*24*60*60*1000; 
 
+
+async function issueTokenPair(user:any){
+    const payload = { id: user._id, email: user.email, fullName: user.fullName, role: user.role};
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL});
+
+
+    const refreshToken = generateRefreshToken(); 
+    await RefreshTokenModel.create({
+        userId: user._id, 
+        tokenHash: hashRefreshToken(refreshToken), 
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS), 
+
+    });
+
+    return {accessToken, refreshToken};
+}
 // Instantiate the repository to use its methods
 const userRepository = new UserRepository();
 
@@ -103,6 +127,11 @@ export class UserService {
             await userRepository.updateOneUser(user._id.toString(), { failedLoginAttempts :0, lockUntil : null});
         }
 
+        if (user.mfaEnabled) {
+            const mfaChallengeToken = jwt.sign({ id: user._id, purpose: "mfa" }, JWT_SECRET, { expiresIn: "5m" });
+            return { mfaRequired: true as const, mfaChallengeToken };
+        }
+
         const forcePasswordChange =isPasswordExpired(user.passwordChangedAt);
 
         // 3. Generate JWT Payload
@@ -113,10 +142,8 @@ export class UserService {
             role: user.role,
         };
 
-        // 4. Sign the token
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
-
-        return { token, user , forcePasswordChange};
+const { accessToken, refreshToken } = await issueTokenPair(user);
+return { accessToken, refreshToken, user, forcePasswordChange };
     }
 
     async changePassword(userId: string, currentPassword: string, newPassword: string){
@@ -245,5 +272,75 @@ export class UserService {
             if (error instanceof HttpError) throw error; 
             throw new HttpError(400, "Invalid or expired token");
         }
+    }
+
+
+    async storeMfaSecretPending(userId: string, secret: string){
+        await userRepository.updateOneUser(userId, { mfaSecret: secret});
+    }
+
+
+    async confirmMfaEnrollment(userId: string, token: string): Promise<boolean>{
+        const user = await UserModel.findById(userId).select('+mfaSecret');
+        if (!user?.mfaSecret) return false; 
+        const valid = await verifyMfaToken(token, user.mfaSecret);
+        if (valid) await userRepository.updateOneUser(userId,{mfaEnabled: true} );
+        return valid; 
+    }
+
+    async saveBackupCodes(userId: string, codes: string[]){
+        await userRepository.updateOneUser(userId, { mfaBackupCodes: codes});
+    }
+
+    async disableMfa (userId: string){
+        await userRepository.updateOneUser(userId, { mfaEnabled: false, mfaSecret: undefined, mfaBackupCodes: []});
+    }
+
+    async verifyMfaChallenge(mfaChallengeToken: string, code: string) {
+        let decoded: any;
+        try {
+            decoded = jwt.verify(mfaChallengeToken, JWT_SECRET);
+        } catch {
+            throw new HttpError(401, "MFA challenge expired, please log in again");
+        }
+        if (decoded.purpose !== "mfa") throw new HttpError(401, "Invalid challenge token");
+
+        const user = await UserModel.findById(decoded.id).select('+mfaSecret');
+        if (!user?.mfaSecret) throw new HttpError(400, "MFA not configured");
+
+        const valid = await verifyMfaToken(code, user.mfaSecret);
+        if (!valid) throw new HttpError(401, "Invalid MFA code");
+
+        const payload = { id: user._id, email: user.email, fullName: user.fullName, role: user.role };
+const { accessToken, refreshToken } = await issueTokenPair(user);
+return { accessToken, refreshToken, user };
+    }
+
+
+
+    async refreshAccessToken (rawRefreshToken: string){
+        const tokenHash = hashRefreshToken(rawRefreshToken);
+        const stored  = await RefreshTokenModel.findOne({ tokenHash, revoked: false});
+        if (!stored || stored.expiresAt < new Date()){
+            throw new HttpError(401, "Invalid or expired refresh token");
+
+        }
+
+
+        stored.revoked = true; 
+        await stored.save();
+
+        const user = await userRepository.getUserById(stored.userId.toString());
+        if (!user) throw new HttpError (401, "User no longer exists");
+
+
+        return await issueTokenPair(user);
+
+    
+    }
+
+    async revokeRefreshToken(rawRefreshToken: string){
+        const tokenHash = hashRefreshToken(rawRefreshToken);
+        await RefreshTokenModel.updateOne({ tokenHash}, { revoked: true});
     }
 }

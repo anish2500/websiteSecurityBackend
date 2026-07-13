@@ -15,24 +15,33 @@ import helmet from "helmet";
 
 const app: Application = express();
 const allowedOrigins = [
-    'http://localhost:3000', 
-    'http://localhost:3003', 
-    'http://localhost:3005', 
-    'http://192.168.18.4:5050', 
-    'http://127.0.0.1:5050', 
-    process.env.CLIENT_URI, 
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3003',
+    'http://localhost:3005',
+    'http://192.168.18.4:5050',
+    'http://127.0.0.1:5050',
+    process.env.CLIENT_URI,
 ].filter(Boolean);
+
+// In dev, Next.js's own "Network:" URL (LAN/VM adapter IP, e.g. VirtualBox/VMware/WSL)
+// varies across machines and restarts - allow any private-range IP on port 3000
+// instead of chasing one-off IPs every time it changes. Never applies in production.
+const isDevLanOrigin = (origin: string) =>
+    process.env.NODE_ENV !== 'production' &&
+    /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):3000$/.test(origin);
 
 const corsOptions  = {
     origin: (origin: string | undefined, callback: (err: Error | null , allow?: boolean)=> void )=> {
-        if (!origin || allowedOrigins.includes(origin)){
+        if (!origin || allowedOrigins.includes(origin) || isDevLanOrigin(origin)){
             return callback(null, true);
 
         }
+        console.warn(`[cors] BLOCKED origin="${origin}" (allowed: ${JSON.stringify(allowedOrigins)})`);
         return callback (new Error ("Not allowed by CORS"));
-    }, 
-    optionsSuccessStatus: 200, 
-    credentials: true, 
+    },
+    optionsSuccessStatus: 200,
+    credentials: true,
 };
 
 app.use(helmet());
