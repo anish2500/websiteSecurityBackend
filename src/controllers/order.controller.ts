@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { OrderService } from "../services/order.service";
 import { CartService } from "../services/cart.service";
 import { PlantModel } from "../models/plant.model";
+import { logActivity } from "../utils/activity-logger.util";
 
 const orderService = new OrderService();
 const cartService = new CartService();
@@ -20,6 +21,7 @@ export class OrderController {
             }
 
             const order = await orderService.createOrder(userId!, items, totalAmount, {paymentMethod, transactionId});
+            await logActivity(userId, "ORDER_CREATED", req, { orderId:order._id, totalAmount});
             await cartService.clearCart(userId!);
 
             return res.status(201).json({

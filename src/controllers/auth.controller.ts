@@ -5,6 +5,7 @@ import { success } from "zod";
 import { verifyCaptcha } from "../utils/captch.util";
 import { UserRepository } from "../repositories/user.repository";
 import { generateBackupCodes, generateMfaSecret, generateQrCodeDataUrl } from "../utils/mfa.util";
+import { logActivity } from "../utils/activity-logger.util";
 
 const userService = new UserService();
 const userRepository = new UserRepository();
@@ -25,6 +26,7 @@ export class AuthController {
             }
 
             const newUser = await userService.registerUser(parsedData.data);
+            await logActivity(newUser._id?.toString(), "REGISTER_SUCCESS", req);
 
             return res.status(201).json({
                 success: true,
@@ -68,13 +70,14 @@ export class AuthController {
             const result = await userService.loginUser(parsedData.data);
 
             if (result.mfaRequired) {
+                await logActivity(existingUser?._id?.toString(), "LOGIN_MFA_REQUIRED", req);
                 return res.status(200).json({
                     success: true,
                     mfaRequired: true,
                     mfaChallengeToken: result.mfaChallengeToken
                 });
             }
-
+            await logActivity(result.user._id.toString(), "LOGIN_SUCCESS", req);
             return res.status(200).json({
                 success: true,
                 message: "Login successful",
@@ -84,6 +87,7 @@ export class AuthController {
             });
 
         } catch (error: any) {
+            await logActivity(undefined, "LOGIN_FAILED", req, { email: req.body?.email, reason: error.message});
             return res.status(error.statusCode || 500).json({
                 success: false,
                 message: error.message || "Internal Server Error"
@@ -154,6 +158,7 @@ export class AuthController {
         try {
             const email = req.body.email;
             const user = await userService.sendResetPasswordEmail(email);
+            await logActivity(user._id.toString(), "PASSWORD_RESET_REQUESTED", req);
             return res.status(200).json(
                 { success: true,
                     data: user,
@@ -173,7 +178,9 @@ export class AuthController {
         try {
             const token = req.params.token;
             const { newPassword } = req.body;
-            await userService.resetPassword(token, newPassword);
+            const user = await userService.resetPassword(token, newPassword); 
+            await logActivity(user._id.toString(), "PASSWORD_RESET_COMPLETED", req); 
+            
             return res.status(200).json(
                 { success: true, message: "Password has been reset successfully." }
             );
@@ -193,6 +200,7 @@ export class AuthController {
 
             }
             await userService.changePassword(userId, parsed.data.currentPassword, parsed.data.newPassword);
+            await logActivity(userId, "PASSWORD_CHANGED", req);
             return res.status(200).json({ success: true, message: "Password changed successfully"});
 
         } catch (error: any){
@@ -222,6 +230,7 @@ verifyMfaSetup = async (req: Request, res: Response) => {
         }
         const ok = await userService.confirmMfaEnrollment(userId, parsed.data.token);
         if (!ok) return res.status(400).json({ success: false, message: "Invalid MFA code" });
+        await logActivity(userId, "MFA_ENABLED", req);
         const backupCodes = generateBackupCodes();
         await userService.saveBackupCodes(userId, backupCodes);
         return res.status(200).json({ success: true, data: { backupCodes } });
@@ -248,6 +257,7 @@ disableMfa = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user?.id;
         await userService.disableMfa(userId);
+        await logActivity(userId, "MFA_DISABLED", req); 
         return res.status(200).json({ success: true, message: "MFA disabled" });
     } catch (error: any) {
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
