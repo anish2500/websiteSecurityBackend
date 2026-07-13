@@ -78,7 +78,8 @@ export class AuthController {
             return res.status(200).json({
                 success: true,
                 message: "Login successful",
-                token: result.token,
+                accessToken: result.accessToken,
+                refreshToken: result.refreshToken, 
                 data: result.user
             });
 
@@ -235,12 +236,13 @@ mfaChallenge = async (req: Request, res: Response) => {
         if (!parsed.success) {
             return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors });
         }
-        const { token, user } = await userService.verifyMfaChallenge(parsed.data.mfaChallengeToken, parsed.data.token);
-        return res.status(200).json({ success: true, message: "Login successful", token, data: user });
+        const { accessToken, refreshToken, user } = await userService.verifyMfaChallenge(parsed.data.mfaChallengeToken, parsed.data.token);
+        return res.status(200).json({ success: true, message: "Login successful", accessToken, refreshToken, data: user });
     } catch (error: any) {
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
     }
 }
+
 
 disableMfa = async (req: Request, res: Response) => {
     try {
@@ -249,6 +251,31 @@ disableMfa = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true, message: "MFA disabled" });
     } catch (error: any) {
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+}
+
+
+
+refresh = async (req: Request, res: Response) =>{
+    try {
+        const {refreshToken} = req.body; 
+        if (!refreshToken) return res.status(400).json({ success: false, message : "Refesh Token required "});
+        const {accessToken, refreshToken: newRefreshToken} = await userService.refreshAccessToken(refreshToken);
+        return res.status(200).json({ success: true, accessToken, refreshToken: newRefreshToken});
+
+    }catch (error: any){
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal server error"});
+    }
+}
+
+logout = async (req: Request, res: Response) => {
+    try {
+        const { refreshToken} = req.body; 
+        if (refreshToken) await userService.revokeRefreshToken(refreshToken);
+        return res.status(200).json({ success: true, message: "Logged out"});
+
+    } catch (error: any){
+        return res.status(error.statusCode || 500).json({ success: false, message : error.message || "Internal server error"});
     }
 }
 
