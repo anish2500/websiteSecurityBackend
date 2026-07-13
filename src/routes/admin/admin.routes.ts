@@ -18,6 +18,7 @@ router.use(isAdmin);
 // Admin profile and management routes (protected)
 // Public admin routes (no admin access required)
 router.post("/register", adminController.registerAdmin.bind(adminController));
+router.get("/activity-logs", adminController.getActivityLogs.bind(adminController));
 router.get("/profile", adminController.getAdminProfile.bind(adminController));
 router.put("/profile", adminController.updateAdminProfile.bind(adminController));
 router.get("/", adminController.getAllAdmins.bind(adminController));

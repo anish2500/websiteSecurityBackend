@@ -8,6 +8,7 @@ import { CreateAdminDTO } from "../../dtos/admin/admin.dto";
 
 
 import mongoose from "mongoose";
+import { logActivity } from "../../utils/activity-logger.util";
 
 const adminService = new AdminService();
 const userService = new UserService();
@@ -27,6 +28,7 @@ export class AdminController {
         }
 
         const newAdmin = await adminService.registerAdmin(parsedData.data);
+        await logActivity((req as any).user?.id, "ADMIN_CREATED", req, { newAdminEmail: newAdmin.email});
 
         const { password, ...adminResponse } = newAdmin.toObject();
 
@@ -336,6 +338,18 @@ async getOrderByIdAdmin(req: Request, res: Response, next : NextFunction){
             sucess: false, 
             message: error.message || "Internal Server Error"
         });
+    }
+}
+
+
+async getActivityLogs(req: Request, res: Response, next: NextFunction){
+    try {
+        const { page, size, userId, action } = req.query as any; 
+        const { logs, pagination} = await adminService.getActivityLogs(page, size, userId, action); 
+        return res.status(200).json({ success: true, data: logs, pagination, message: "Activity logs retreived"});
+
+    } catch (error: any){
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error"});
     }
 }
 }

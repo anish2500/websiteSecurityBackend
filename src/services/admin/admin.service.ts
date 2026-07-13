@@ -5,6 +5,7 @@ import { HttpError } from "../../errors/http-error";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config";
 import { IAdmin } from "../../models/admin/admin.model";
+import { ActivityLogModel } from "../../models/activity-log.model";
 
 const adminRepository = new AdminRepository();
 const userRepository = new UserRepository();
@@ -151,5 +152,33 @@ export class AdminService {
             totalPages: Math.ceil(total / pageSize)
         }
         return {users, pagination};
+    }
+
+    async getActivityLogs(page?: string, size?:string, userId?:string, action?: string){
+        const pageNumber = page ? parseInt(page): 1; 
+        const pageSize = size ? parseInt(size): 20; 
+
+
+        const filter: any = {}; 
+        if(userId) filter.userId = userId; 
+        if(action) filter.action = action; 
+
+        const [logs, total] = await Promise.all([
+            ActivityLogModel.find(filter)
+                .sort({ createdAt: -1})
+                .skip((pageNumber -1) * pageSize)
+                .limit(pageSize), 
+            ActivityLogModel.countDocuments(filter), 
+        ]);
+
+
+        const pagination = {
+            page: pageNumber, 
+            size: pageSize, 
+            totalItems : total, 
+            totalPages: Math.ceil(total / pageSize), 
+        }; 
+
+        return { logs, pagination};
     }
 }
