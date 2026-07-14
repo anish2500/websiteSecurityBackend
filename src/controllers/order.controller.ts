@@ -3,6 +3,7 @@ import { OrderService } from "../services/order.service";
 import { CartService } from "../services/cart.service";
 import { PlantModel } from "../models/plant.model";
 import { logActivity } from "../utils/activity-logger.util";
+import { CreateOrderDTO } from "../dtos/order.dto";
 
 const orderService = new OrderService();
 const cartService = new CartService();
@@ -11,16 +12,19 @@ export class OrderController {
     async createOrder(req: Request, res: Response) {
         try {
             const userId = req.user?._id?.toString();
-            const { items, totalAmount, paymentMethod, transactionId } = req.body;
 
-            if (!items || !totalAmount) {
+            const parsed = CreateOrderDTO.safeParse(req.body);
+            if (!parsed.success){
                 return res.status(400).json({
                     success: false,
-                    message: "Items and totalAmount are required"
+                    message: "Validation error",
+                    errors: parsed.error.flatten().fieldErrors
                 });
             }
 
-            const order = await orderService.createOrder(userId!, items, totalAmount, {paymentMethod, transactionId});
+            const { items, totalAmount, shippingAddress, phone, paymentMethod, transactionId } = parsed.data;
+
+            const order = await orderService.createOrder(userId!, items, totalAmount, shippingAddress, phone, {paymentMethod, transactionId});
             await logActivity(userId, "ORDER_CREATED", req, { orderId:order._id, totalAmount});
             await cartService.clearCart(userId!);
 

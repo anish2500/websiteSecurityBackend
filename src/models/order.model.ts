@@ -11,6 +11,8 @@ const OrderSchema = new Schema ({
     userId : {type: Schema.Types.ObjectId, ref : 'User', required : true},
     items : [OrderItemSchema],
     totalAmount : {type: Number, required: true}, 
+    shippingAddress: { type: String, required: true}, 
+    phone: { type: String, required: true}, 
     paymentStatus : {
         type: String, 
         enum: ['pending', 'paid', 'failed', 'refunded'],
