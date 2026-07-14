@@ -13,6 +13,7 @@ import { globalApiLimiter } from './middlewares/rate-limit.middleware';
 import helmet from "helmet";
 import hpp from "hpp"; 
 import { sanitizeInput } from './middlewares/sanitize.middleware';
+import { ipBlockGuard } from './middlewares/ip-block.middleware';
 
 
 const app: Application = express();
@@ -44,6 +45,7 @@ const corsOptions  = {
 };
 
 app.use(helmet());
+app.use(ipBlockGuard);
 app.use(cors(corsOptions));
 app.use(globalApiLimiter); 
 
