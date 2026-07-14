@@ -11,6 +11,8 @@ import orderRoutes from "./routes/order.route";
 import favoriteRoutes from "./routes/favorite.route";
 import { globalApiLimiter } from './middlewares/rate-limit.middleware';
 import helmet from "helmet";
+import hpp from "hpp"; 
+import { sanitizeInput } from './middlewares/sanitize.middleware';
 
 
 const app: Application = express();
@@ -49,6 +51,9 @@ app.use(globalApiLimiter);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(sanitizeInput); 
+app.use(hpp());
 
 
 app.use('/api/auth', authRoutes);
