@@ -1,8 +1,17 @@
 import { OrderModel } from "../models/order.model";
 import { HttpError } from "../errors/http-error";
+import { encryptField, decryptField } from "../utils/encryption.util";
+
+
+function decryptOrder(order: any){
+    const obj = order.toObject ? order.toObject(): order; 
+    if (obj.shippingAddress) obj.shippingAddress = decryptField(obj.shippingAddress);
+    if(obj.phone) obj.phone = decryptField(obj.phone); 
+    return obj; 
+}
 
 export class OrderService {
-    async createOrder(userId: string, items: any[], totalAmount: number, paymentInfo?: {
+    async createOrder(userId: string, items: any[], totalAmount: number, shippingAddress: string, phone:string,  paymentInfo?: {
         paymentMethod?: string; 
         transactionId?: string; 
     }) {
@@ -10,18 +19,20 @@ export class OrderService {
             userId,
             items,
             totalAmount, 
+            shippingAddress: encryptField(shippingAddress), 
+            phone: encryptField(phone), 
             paymentMethod: paymentInfo?.paymentMethod || 'cash_on_delivery', 
             transactionId: paymentInfo?.transactionId, 
             paymentStatus: paymentInfo?.transactionId ? 'paid' : 'pending', 
             paidAt: paymentInfo?.transactionId ? new Date() : undefined 
         });
-        return order;
+        return decryptOrder(order);
     }
 
     async getOrdersByUser(userId: string) {
         const orders = await OrderModel.find({ userId }).sort({ createdAt: -1 })
         .populate('items.plantId', 'name price plantImage');
-        return orders;
+        return orders.map(decryptOrder);
     }
 
     async getOrderById(userId: string, orderId: string) {
@@ -30,7 +41,7 @@ export class OrderService {
         if (!order) {
             throw new HttpError(404, "Order not found");
         }
-        return order;
+        return decryptOrder(order);
     }
 
     async clearOrder(userId: string, orderId: string){
@@ -47,7 +58,7 @@ export class OrderService {
         .populate('items.plantId', 'name price plantImage')
         .populate('userId', 'fullName email username');
 
-        return orders; 
+        return orders.map(decryptOrder); 
     }
 
     async getOrderByIdAdmin(orderId: string){
@@ -58,7 +69,7 @@ export class OrderService {
         if (!order){
             throw new HttpError(404, "Order not found");
         }    
-        return order; 
+        return decryptOrder(order); 
     }
 
     async updatePaymentStatus(orderId: string, status: 'paid' | 'failed' | 'refunded' , transactionId?: string){
