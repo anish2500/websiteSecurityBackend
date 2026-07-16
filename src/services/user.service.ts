@@ -349,4 +349,36 @@ return { accessToken, refreshToken, user };
         const tokenHash = hashRefreshToken(rawRefreshToken);
         await RefreshTokenModel.updateOne({ tokenHash}, { revoked: true});
     }
+
+
+    async sendMagicLink(email: string) {
+        const user = await userRepository.getUserbyEmail(email); 
+        if (user){
+            const magicToken = jwt.sign({ id: user._id, purpose: "magic-login"}, JWT_SECRET, {expiresIn: "15m"});
+            const magicLink = `${CLIENT_URL}/magic-login?token=${magicToken}`;
+            const html = `<p>Click <a href="${magicLink}">here</a>to log in. This link expires in 15 minutes.</p>`;
+            await sendEmail(user.email, "Your login link", html); 
+        }
+
+
+    }
+
+    async verifyMagicLink(token: string){
+        let decoded: any; 
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+
+        } catch {
+            throw new HttpError(401, "Login link is invalid or has expired"); 
+        }
+
+        if (decoded.purpose !=="magic-login") throw new HttpError(401, "Invalid login link");
+
+
+        const user = await userRepository.getUserById(decoded.id); 
+        if (!user) throw new HttpError(401, "user no longer exists");
+
+        const { accessToken, refreshToken} = await issueTokenPair(user); 
+        return { accessToken, refreshToken, user}; 
+    }
 }
