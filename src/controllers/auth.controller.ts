@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service";
-import { ChangePasswordDto, CreateUserDTO, LoginUserDTO, MfaChallengeDto, UpdateUserDto, VerifyMfaDto } from "../dtos/user.dto";
+import { ChangePasswordDto, CreateUserDTO, LoginUserDTO, MagicLinkRequestDto, MagicLinkVerifyDto, MfaChallengeDto, UpdateUserDto, VerifyMfaDto } from "../dtos/user.dto";
 import { success } from "zod";
 import { verifyCaptcha } from "../utils/captch.util";
 import { UserRepository } from "../repositories/user.repository";
@@ -291,6 +291,39 @@ logout = async (req: Request, res: Response) => {
 
     } catch (error: any){
         return res.status(error.statusCode || 500).json({ success: false, message : error.message || "Internal server error"});
+    }
+}
+
+
+requestMagicLink  = async (req: Request, res: Response) =>{
+    try {
+        const parsed = MagicLinkRequestDto.safeParse(req.body); 
+        if (!parsed.success){
+            return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors});
+
+        }
+
+        await userService.sendMagicLink(parsed.data.email); 
+        return res.status(200).json({ success: true, message: "If that email is registered, a login link has been sent."});
+    } catch (error: any){
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal server error"});
+    }
+}
+
+
+magicLogin = async (req: Request, res: Response) =>{
+    try {
+        const parsed = MagicLinkVerifyDto.safeParse(req.body); 
+        if (!parsed.success){
+            return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors});
+
+        }
+        const { accessToken, refreshToken, user} = await userService.verifyMagicLink(parsed.data.token);
+        await logActivity(user._id.toString(), "MAGIC_LOGIN_SUCCESS", req);
+
+        return res.status(200).json({ success: true, message: "Login successful", accessToken, refreshToken, data: user});
+    } catch (error: any){
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal server error"});
     }
 }
 

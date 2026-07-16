@@ -70,3 +70,17 @@ export const MfaChallengeDto = z.object({
 });
 
 export type MfaChallengeDto = z.infer<typeof MfaChallengeDto>;
+
+export const MagicLinkRequestDto  = z.object({
+    email: z.string().email("Invalid email format"), 
+
+}); 
+
+export type MagicLinkRequestDto = z.infer<typeof MagicLinkRequestDto>; 
+
+
+export const MagicLinkVerifyDto  = z.object({
+    token: z.string().min(1), 
+
+}); 
+export type MagicLinkVerifyDto = z.infer<typeof MagicLinkVerifyDto>; 

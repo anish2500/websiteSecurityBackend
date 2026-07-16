@@ -29,5 +29,8 @@ router.post("/mfa/setup", authorizedMiddleware, authController.setupMfa);
 router.post("/mfa/verify-setup", authorizedMiddleware, authController.verifyMfaSetup);
 router.post("/mfa/challenge", loginLimiter, authController.mfaChallenge); 
 router.post("/mfa/disable", authorizedMiddleware, authController.disableMfa);
+router.post("/magic-link/request", passwordResetLimiter, authController.requestMagicLink);
+router.post("/magic-link/verify", loginLimiter, authController.magicLogin);
+
 
 export default router;
