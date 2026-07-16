@@ -20,7 +20,7 @@ const ACCESS_TOKEN_TTL = "15m";
 const REFRESH_TOKEN_TTL_MS = 7*24*60*60*1000; 
 
 
-async function issueTokenPair(user:any){
+async function issueTokenPair(user:any, userAgent?: string){
     const payload = { id: user._id, email: user.email, fullName: user.fullName, role: user.role};
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL});
 
@@ -30,6 +30,7 @@ async function issueTokenPair(user:any){
         userId: user._id, 
         tokenHash: hashRefreshToken(refreshToken), 
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS), 
+        userAgent, 
 
     });
 
@@ -98,7 +99,7 @@ export class UserService {
     /**
      * Login Logic
      */
-    async loginUser(data: LoginUserDTO) {
+    async loginUser(data: LoginUserDTO, userAgent?: string) {
         // 1. Check if the user exists by email
         const user = await userRepository.getUserbyEmail(data.email);
         if (!user) throw new HttpError(401, "Invalid credentials");
@@ -142,7 +143,7 @@ export class UserService {
             role: user.role,
         };
 
-const { accessToken, refreshToken } = await issueTokenPair(user);
+const { accessToken, refreshToken } = await issueTokenPair(user, userAgent);
 return { accessToken, refreshToken, user, forcePasswordChange };
     }
 
@@ -296,7 +297,7 @@ return { accessToken, refreshToken, user, forcePasswordChange };
         await userRepository.updateOneUser(userId, { mfaEnabled: false, mfaSecret: undefined, mfaBackupCodes: []});
     }
 
-    async verifyMfaChallenge(mfaChallengeToken: string, code: string) {
+    async verifyMfaChallenge(mfaChallengeToken: string, code: string, userAgent?: string) {
         let decoded: any;
         try {
             decoded = jwt.verify(mfaChallengeToken, JWT_SECRET);
@@ -312,18 +313,23 @@ return { accessToken, refreshToken, user, forcePasswordChange };
         if (!valid) throw new HttpError(401, "Invalid MFA code");
 
         const payload = { id: user._id, email: user.email, fullName: user.fullName, role: user.role };
-const { accessToken, refreshToken } = await issueTokenPair(user);
+const { accessToken, refreshToken } = await issueTokenPair(user, userAgent);
 return { accessToken, refreshToken, user };
     }
 
 
 
-    async refreshAccessToken (rawRefreshToken: string){
+    async refreshAccessToken (rawRefreshToken: string, userAgent?: string){
         const tokenHash = hashRefreshToken(rawRefreshToken);
         const stored  = await RefreshTokenModel.findOne({ tokenHash, revoked: false});
         if (!stored || stored.expiresAt < new Date()){
             throw new HttpError(401, "Invalid or expired refresh token");
 
+        }
+        if (stored.userAgent && stored.userAgent !== userAgent){
+            stored.revoked = true; 
+            await stored.save(); 
+            throw new HttpError(401, "Session does not match the original device. Please log in again. ")
         }
 
 
@@ -334,7 +340,7 @@ return { accessToken, refreshToken, user };
         if (!user) throw new HttpError (401, "User no longer exists");
 
 
-        return await issueTokenPair(user);
+        return await issueTokenPair(user, userAgent);
 
     
     }

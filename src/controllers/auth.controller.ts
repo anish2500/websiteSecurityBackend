@@ -10,6 +10,10 @@ import { logActivity } from "../utils/activity-logger.util";
 const userService = new UserService();
 const userRepository = new UserRepository();
 
+function getClientUserAgent(req: Request): string {
+    return (req.headers['x-client-user-agent'] as string) || (req.headers['user-agent' ] as string)
+}
+
 export class AuthController {
     
     // Changed to Arrow Function to preserve 'this' context
@@ -46,6 +50,7 @@ export class AuthController {
     login = async (req: Request, res: Response) => {
         try {
             const parsedData = LoginUserDTO.safeParse(req.body);
+           
 
             if (!parsedData.success) {
                 return res.status(400).json({
@@ -67,7 +72,7 @@ export class AuthController {
             }
 
             // Enforces the 5-attempt lockout.
-            const result = await userService.loginUser(parsedData.data);
+            const result = await userService.loginUser(parsedData.data, getClientUserAgent(req));
 
             if (result.mfaRequired) {
                 await logActivity(existingUser?._id?.toString(), "LOGIN_MFA_REQUIRED", req);
@@ -245,7 +250,7 @@ mfaChallenge = async (req: Request, res: Response) => {
         if (!parsed.success) {
             return res.status(400).json({ success: false, message: "Validation Error", errors: parsed.error.flatten().fieldErrors });
         }
-        const { accessToken, refreshToken, user } = await userService.verifyMfaChallenge(parsed.data.mfaChallengeToken, parsed.data.token);
+        const { accessToken, refreshToken, user } = await userService.verifyMfaChallenge(parsed.data.mfaChallengeToken, parsed.data.token, getClientUserAgent(req));
         return res.status(200).json({ success: true, message: "Login successful", accessToken, refreshToken, data: user });
     } catch (error: any) {
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
@@ -270,7 +275,7 @@ refresh = async (req: Request, res: Response) =>{
     try {
         const {refreshToken} = req.body; 
         if (!refreshToken) return res.status(400).json({ success: false, message : "Refesh Token required "});
-        const {accessToken, refreshToken: newRefreshToken} = await userService.refreshAccessToken(refreshToken);
+        const {accessToken, refreshToken: newRefreshToken} = await userService.refreshAccessToken(refreshToken, getClientUserAgent(req));
         return res.status(200).json({ success: true, accessToken, refreshToken: newRefreshToken});
 
     }catch (error: any){

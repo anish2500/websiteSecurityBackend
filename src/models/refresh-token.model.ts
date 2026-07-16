@@ -5,6 +5,7 @@ const RefreshTokenSchema = new Schema ({
     tokenHash: {type: String, required: true}, 
     expiresAt: {type: Date, required: true}, 
     revoked: {type: Boolean, default: false}, 
+    userAgent: { type: String}, 
 
 },{ timestamps: true});
 
@@ -14,6 +15,7 @@ export interface IRefreshToken extends Document {
     tokenHash: string; 
     expiresAt: Date; 
     revoked: boolean; 
+    userAgent?: string; 
 }
 
 export const RefreshTokenModel = mongoose.models.RefreshToken || mongoose.model<IRefreshToken>('RefreshToken', RefreshTokenSchema);
