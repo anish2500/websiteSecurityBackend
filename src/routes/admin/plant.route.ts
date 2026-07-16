@@ -3,6 +3,7 @@ import { AdminPlantController } from "../../controllers/admin/plant.controller";
 import { authorizedMiddleware, isAdmin } from "../../middlewares/authorization.middleware";
 import { upload } from "../../middlewares/upload.middleware";
 import { Types } from "mongoose";
+import { adminActionLimiter } from "../../middlewares/rate-limit.middleware";
 
 const router = Router();
 const adminPlantController = new AdminPlantController();
@@ -15,7 +16,7 @@ router.use(isAdmin);
 
 // Create a new plant
 router.post(
-  "/",
+  "/", adminActionLimiter, 
   upload.single("plantImage"),
   adminPlantController.createPlant.bind(adminPlantController)
 );
@@ -37,16 +38,16 @@ router.get("/:id", validatePlantId, adminPlantController.getPlantById.bind(admin
 
 // Update plant by ID
 router.put(
-  "/:id",
+  "/:id", adminActionLimiter, 
   validatePlantId,
   upload.single("plantImage"),
   adminPlantController.updatePlant.bind(adminPlantController)
 );
 
 // Delete plant by ID
-router.delete("/:id", validatePlantId, adminPlantController.deletePlant.bind(adminPlantController));
+router.delete("/:id", adminActionLimiter, validatePlantId, adminPlantController.deletePlant.bind(adminPlantController));
 
 // Restock plant
-router.patch("/:id/restock", validatePlantId, adminPlantController.restockPlant.bind(adminPlantController));
+router.patch("/:id/restock", adminActionLimiter,  validatePlantId, adminPlantController.restockPlant.bind(adminPlantController));
 
 export default router;
