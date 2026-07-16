@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AdminController } from "../../controllers/admin/admin.controller";
 import { authorizedMiddleware, isAdmin } from "../../middlewares/authorization.middleware";
 import { uploadProfilePicture } from "../../middlewares/upload.middleware";
+import { adminActionLimiter } from "../../middlewares/rate-limit.middleware";
 
 const router = Router();
 const adminController = new AdminController();
@@ -23,13 +24,13 @@ router.get("/profile", adminController.getAdminProfile.bind(adminController));
 router.put("/profile", adminController.updateAdminProfile.bind(adminController));
 router.get("/", adminController.getAllAdmins.bind(adminController));
 router.get("/:adminId", adminController.getAdminById.bind(adminController));
-router.delete("/:adminId", adminController.deleteAdmin.bind(adminController));
+router.delete("/:adminId", adminActionLimiter,  adminController.deleteAdmin.bind(adminController));
 
 // User Management Routes for Admin
 router.get("/users/all", adminController.getAllUsers.bind(adminController));
 router.get("/users/:userId", adminController.getUserById.bind(adminController));
-router.post("/users", uploadProfilePicture.single('profilePicture'), adminController.createUser.bind(adminController));
-router.put("/users/:userId", uploadProfilePicture.single('profilePicture'), adminController.updateUser.bind(adminController));
+router.post("/users", adminActionLimiter,  uploadProfilePicture.single('profilePicture'), adminController.createUser.bind(adminController));
+router.put("/users/:userId", adminActionLimiter,  uploadProfilePicture.single('profilePicture'), adminController.updateUser.bind(adminController));
 router.delete("/users/:userId", adminController.deleteUser.bind(adminController));
 
 

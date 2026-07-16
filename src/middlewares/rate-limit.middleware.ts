@@ -1,5 +1,6 @@
 import rateLimit from "express-rate-limit";
 import { recordOffense } from "./ip-block.middleware";
+import { success } from "zod";
 
 
 export const TRUSTED_IPS = (process.env.TRUSTED_IPS || "").split(",").map(ip => ip.trim()).filter(Boolean);
@@ -61,3 +62,34 @@ export const globalApiLimiter = rateLimit({
         res.status(429).json({ success: false, message: "Too many requests. Try again later."});
     }
 }); 
+
+export const orderLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, 
+    max: 15, 
+    skip: skipTrusted, 
+    handler: (req, res) =>{
+        recordOffense(req.ip as string); 
+        res.status(429).json({ success: false, message: "Too many orders placed. Try again later."});
+    },
+});
+
+export const paymentActionLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, 
+    max: 5, 
+    skip: skipTrusted, 
+    handler: (req, res) =>{
+        recordOffense(req.ip as string); 
+        res.status(429).json({ success: false, message: "Too many payment/refund actions. Try again later." });
+
+    },
+});
+
+export const adminActionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 50, 
+    skip: skipTrusted, 
+    handler: (req, res) =>{
+        recordOffense(req.ip as string); 
+        res.status(429).json({ success: false, message: " Too many admin actions. Try again later. "});
+    },
+});
