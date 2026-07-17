@@ -9,6 +9,7 @@ import { CreateAdminDTO } from "../../dtos/admin/admin.dto";
 
 import mongoose from "mongoose";
 import { logActivity } from "../../utils/activity-logger.util";
+import { AdminUpdateUserDto } from "../../dtos/user.dto";
 
 const adminService = new AdminService();
 const userService = new UserService();
@@ -279,7 +280,16 @@ async updateUser(req: Request, res: Response, next: NextFunction) {
             });
         }
 
-        const updateData = req.body;
+        const parsed = AdminUpdateUserDto.safeParse(req.body); 
+        if (!parsed.success){
+            return res.status(400).json({
+                success: false, 
+                message: "Validation Error", 
+                errors: parsed.error.flatten().fieldErrors
+        });
+        }
+
+        const updateData: any = parsed.data;
         if (req.file) {
             updateData.profilePicture = req.file.filename;
         }
@@ -352,4 +362,7 @@ async getActivityLogs(req: Request, res: Response, next: NextFunction){
         return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error"});
     }
 }
+
+
+
 }
