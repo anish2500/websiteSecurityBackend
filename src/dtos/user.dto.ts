@@ -84,3 +84,12 @@ export const MagicLinkVerifyDto  = z.object({
 
 }); 
 export type MagicLinkVerifyDto = z.infer<typeof MagicLinkVerifyDto>; 
+
+
+export const AdminUpdateUserDto = z.object({
+    fullName: z.string().min(2, "Full name is required").optional(),
+    username: z.string().min(2, "Username is required").optional(),
+    email: z.string().email("Invalid email format").optional(),
+    profilePicture: z.string().optional().nullable(),
+});
+export type AdminUpdateUserDto = z.infer<typeof AdminUpdateUserDto>;
